@@ -1,5 +1,16 @@
 CREATE SCHEMA IF NOT EXISTS content;
 
+CREATE TABLE content.user (
+    id UUID PRIMARY KEY,
+
+    name VARCHAR(255) NOT NULL,
+
+    email VARCHAR(255) NOT NULL UNIQUE,
+
+    created TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    modified TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE content.conference (
     id UUID PRIMARY KEY,
 
@@ -57,22 +68,24 @@ CREATE TABLE content.session (
 
 CREATE TABLE content.registration (
     id UUID PRIMARY KEY,
-
+    user_id UUID NOT NULL,
     session_id UUID NOT NULL,
-
-    user_email VARCHAR(255) NOT NULL,
-    user_name VARCHAR(255) NOT NULL,
 
     created TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     modified TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_registration_user
+        FOREIGN KEY(user_id)
+        REFERENCES content.user(id)
+        ON DELETE CASCADE,
 
     CONSTRAINT fk_registration_session
         FOREIGN KEY (session_id)
         REFERENCES content.session(id)
         ON DELETE CASCADE,
 
-    CONSTRAINT uq_registration_email
-        UNIQUE(session_id, user_email)
+    CONSTRAINT uq_registration_user
+        UNIQUE(session_id, user_id)
 );
 
 CREATE TABLE content.speaker (
@@ -111,13 +124,16 @@ CREATE INDEX idx_track_conference
 ON content.track(conference_id);
 
 CREATE INDEX idx_session_track
-ON content.conference_session(track_id);
+ON content.session(track_id);
 
 CREATE INDEX idx_registration_session
 ON content.registration(session_id);
 
 CREATE INDEX idx_session_speaker_session
 ON content.session_speaker(session_id);
+
+CREATE INDEX idx_registration_user
+ON content.registration(user_id);
 
 CREATE INDEX idx_session_speaker_speaker
 ON content.session_speaker(speaker_id);
