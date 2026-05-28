@@ -27,9 +27,14 @@ services:
     build:
       context: ./django_admin
     command: >
-      sh -c "python manage.py migrate &&
+      sh -c "python manage.py collectstatic --noinput &&
+             python manage.py makemigrations conference &&
+             python manage.py migrate &&
+             python manage.py seed_data || true &&
              python manage.py createsuperuser --noinput || true &&
              gunicorn config.wsgi:application --bind 0.0.0.0:8000"
+    volumes:
+      - django_static:/app/static
     environment:
       - DB_HOST=db
       - DB_PORT=5432
@@ -43,7 +48,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz/"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz/')"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -66,7 +71,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/healthz/"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz/')"]
       interval: 10s
       timeout: 5s
       retries: 3
