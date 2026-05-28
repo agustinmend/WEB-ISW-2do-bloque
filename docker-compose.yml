@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:15-alpine
@@ -28,13 +26,10 @@ services:
       context: ./django_admin
     command: >
       sh -c "python manage.py collectstatic --noinput &&
-             python manage.py makemigrations conference &&
              python manage.py migrate &&
              python manage.py seed_data || true &&
              python manage.py createsuperuser --noinput || true &&
              gunicorn config.wsgi:application --bind 0.0.0.0:8000"
-    volumes:
-      - django_static:/app/static
     environment:
       - DB_HOST=db
       - DB_PORT=5432
@@ -44,6 +39,11 @@ services:
       - DJANGO_SUPERUSER_USERNAME=${SUPERUSER_NAME}
       - DJANGO_SUPERUSER_EMAIL=${SUPERUSER_EMAIL}
       - DJANGO_SUPERUSER_PASSWORD=${SUPERUSER_PASSWORD}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DJANGO_DEBUG=${DJANGO_DEBUG}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
+    volumes:
+      - django_static:/app/static
     depends_on:
       db:
         condition: service_healthy
@@ -71,7 +71,8 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/healthz')"]      interval: 10s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/healthz')"]
+      interval: 10s
       timeout: 5s
       retries: 3
 
@@ -81,7 +82,7 @@ services:
       - "80:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/404.html:/usr/share/nginx/html/404.html:ro
+      - ./nginx/404.html:/usr/share/nginx/errors/404.html:ro
       - ./frontend/conference:/usr/share/nginx/html:ro
       - django_static:/app/static:ro
     depends_on:
