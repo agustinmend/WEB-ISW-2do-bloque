@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from datetime import timedelta
 from conference.models import UserAccount, Conference, Track, Session, Registration
+import uuid
 
 class Command(BaseCommand):
     def handle(self, *args, **kwargs):
@@ -9,7 +10,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS('La base de datos ya contiene datos. Saltando seeding.'))
             return
 
-        users_to_create = [UserAccount(name=f"User {i}", email=f"user{i}@example.com") for i in range(500)]
+        users_to_create = [UserAccount(id=uuid.uuid4(), name=f"User {i}", email=f"user{i}@example.com") for i in range(500)]
         UserAccount.objects.bulk_create(users_to_create)
         users = list(UserAccount.objects.all())
 
@@ -24,6 +25,7 @@ class Command(BaseCommand):
         sessions_to_create = []
         for i in range(300):
             sessions_to_create.append(Session(
+                id=uuid.uuid4(),
                 track=track,
                 title=f"Arquitectura y Diseño - Sesión {i}",
                 start_time=timezone.now() + timedelta(hours=i),
@@ -37,7 +39,7 @@ class Command(BaseCommand):
         registrations_to_create = []
         for session in sessions:
             for user in users:
-                registrations_to_create.append(Registration(session=session, user=user))
+                registrations_to_create.append(Registration(id=uuid.uuid4(), session=session, user=user))
             
             if len(registrations_to_create) >= 10000:
                 Registration.objects.bulk_create(registrations_to_create)
