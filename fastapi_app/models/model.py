@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 from uuid import UUID
@@ -20,10 +20,12 @@ class SessionModel(BaseModel):
     abstract: Optional[str] = None
     starts_at: datetime
     ends_at: datetime
-    capacity: int
-    registered: int
+    capacity: Optional[int] = None
+    registered: int = 0
     track: Optional[TrackModel] = None
     speakers: List[SpeakerModel] = []
+    
+    model_config = ConfigDict(from_attributes=True)
 
 class PaginatedSessionResponse(BaseModel):
     count: int
