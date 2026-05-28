@@ -1,6 +1,6 @@
 CREATE SCHEMA IF NOT EXISTS content;
 
-CREATE TABLE content.user (
+CREATE TABLE content.user_account (
     id UUID PRIMARY KEY,
 
     name VARCHAR(255) NOT NULL,
@@ -76,7 +76,7 @@ CREATE TABLE content.registration (
 
     CONSTRAINT fk_registration_user
         FOREIGN KEY(user_id)
-        REFERENCES content.user(id)
+        REFERENCES content.user_account(id)
         ON DELETE CASCADE,
 
     CONSTRAINT fk_registration_session
@@ -100,6 +100,7 @@ CREATE TABLE content.speaker (
 );
 
 CREATE TABLE content.session_speaker (
+    id UUID PRIMARY KEY,
     session_id UUID NOT NULL,
     speaker_id UUID NOT NULL,
 
