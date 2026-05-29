@@ -4,14 +4,21 @@ from repositories.session_repo import SessionRepositoryProtocol, PostgresSession
 from services.session_service import SessionService
 from models.model import PaginatedSessionResponse, SessionModel
 from typing import List
+from repositories.cache import RedisCache, CacheProtocol
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
 def get_session_db() -> SessionRepositoryProtocol:
     return PostgresSessionRepository()
 
-def get_session_service(db: SessionRepositoryProtocol = Depends(get_session_db)) -> SessionService:
-    return SessionService(db)
+def get_cache() -> CacheProtocol:
+    return RedisCache()
+
+def get_session_service(
+    db: SessionRepositoryProtocol = Depends(get_session_db), 
+    cache: CacheProtocol = Depends(get_cache)
+) -> SessionService:
+    return SessionService(db, cache)
 
 @router.get("/", response_model=PaginatedSessionResponse)
 def list_sessions(

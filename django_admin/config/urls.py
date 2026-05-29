@@ -16,10 +16,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from django.http import HttpResponse
+from django.http import JsonResponse
+from django.db import connection
 
 def healthz(request):
-    return HttpResponse("OK")
+    try:
+        connection.cursor().execute("SELECT 1")
+        return JsonResponse({"status": "ok", "checks": {"postgres": "ok"}})
+    except Exception:
+        return JsonResponse({"status": "error", "checks": {"postgres": "error"}}, status=503)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
