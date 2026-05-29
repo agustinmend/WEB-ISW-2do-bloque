@@ -1,0 +1,170 @@
+Examen 2do bloque
+Option A — Concert / Event Ticketing
+Entities: Venue , Event , TicketType (e.g. General Admission, VIP, Early Bird), Order , Ticket .
+Relationships: one Venue has many Events; one Event has many TicketTypes; one Order has many
+Tickets; each Ticket belongs to one TicketType.
+
+
+Option C — Restaurant Reservations
+Entities: Restaurant , TableType , MenuItem , Reservation , ReservationGuest .
+Relationships: one Restaurant has many TableTypes and many MenuItems; one Reservation belongs to
+one Restaurant and one TableType; one Reservation has many Guests.
+
+Soy opción B Sesiones de la conferencia e inscripciones
+-panel de administración, gestione eventos, lugares y otros tipos de eventos
+-API publica que permita listar eventos y comprar entradas, debe usar Python
+-Un solo Docker compose up
+-PostgreSQL debería ser sifuciente para todo, no hace falta un buscador aparte
+-README.md documentar las decisiones
+Entidades:
+Conference = Conferencia
+Track = Pista
+Session = Sesión
+Speaker = ponente
+Registration = inscripción
+
+Relaciones:
+-Una conferencia tiene varias pistas
+-una pista tiene varias sesiones
+-las sesiones y los ponentes tienen relaciones de muchos a muchos
+-una inscripción pertenece a un usuario y a una sesión
+
+Servicio de administración de Django
+-Utilizar Django 4.2 o 5.x. Django solo debe exponer el panel de administración, no API endpoints
+-El schema de postgres para las tablas debe estar en un content schema(no publico). Todos los modelos deben estar en ese schema
+-Utilizar claves primarias UUID para todas las tablas de dominio
+-Todas las tablas deben tener campos created y modified timestamp fields
+-El administrador debe admitir la búsqueda, el filtrado y la edición en linea de los recursos secundarios
+-En el primer inicio, se debe crear automáticamente un superusuario con las credenciales obtenidas de las variables de entorno
+
+FastAPI Public API
+-Read-only endpoints(GET) sobre la misma base de datos postgres utilizada por Django
+-Debe exponer al menos:
+ -GET /api/v1/<resource>/ — Lista paginada con filtrado opcional
+ -GET /api/v1/<resource>/{id} — Elemento único con todos los datos secundarios relacionados.
+ -GET /api/v1/<resource>/search/?query=... — Búsqueda de texto en los campos principales.
+-Todas las respuestas deben ser json utilize modelos Pydantic para los esquemas de respuesta
+-El servicio FastAPI NO debe depender del servicor Django en tiempo de ejecución(solo de PostgreSQL + Redis)
+
+Caching
+- Utilice Redis para almacenar en cache las respuestas de lista y detalle
+- La estrategia de invalidación de la cache es a su elección, explíquela en el archivo README.
+- Los fallos de cache no deben provocar la caída de la API, si Redis no esta disponible la API debe seguir proporcionando respuestas desde PostgreSQL(degradación controlada)
+
+Lógica de negocio OBLIGATORIO
+-Implementar al menos una lógica de negocio no trivial de la siguiente lista. Elegir una que se ajuste a el dominio. La lógica debe ser ejecutada por el servicio FastAPI, no solo por el administrador
+1. Control de inventario/ capacidad. Cuando la API devuelve la disponibilidad del recurso principal, el calculo debe ser correcto incluso con lecturas concurrentes(no es necesario gestionar las escrituras concurrentes, estas se gestionan a través del administrador)
+2. Filtrado por intervalo de tiempo. Proporcione un endpoint que devuelva solo los elementos cuya hora de inicio se encuentre dentro de un intervalo configurable(por ejemplo, "los próximos 7 dias", "este fin de semana"). La definición del intervalo debe respetar una zona horaria que se pasa como parámetro de consulta, con UTC
+3. Reglas de precios. Cada recurso principal tiene uno o mas niveles de precios con fechas de inicio y fin de validez opcionales. La API debe devolver el precio vigente para cada elemento, teniendo en cuenta la hora de la solicitud y cualquier nivel superpuesto(usted define la  regla de desempate y la documenta)
+Puedes implementar mas de una solo si la primera es solida
+
+Reverse Proxy
+-Todo el trafico HTTP procedente del exterior debe pasar por Nginx en el puerto 80
+-Nginx debe:
+ -Enruta /admin/static/ y cualquier ruta de Django al servicio de Django
+ -Enruta /api/ al servicio FastAPI.
+ -Sirve los archivos estáticos de Django directamente(no redirijas las solicitudes de recursos estáticos a Django/uWSGI)
+ -Oculta la versión de Nginx en los encabezados de respuesta
+ -Establece tiempos de espera razonables
+ -Enruta / para servir el frontend
+ -Gestiona las respuestas 404 usando un HTML genérico
+
+Application Server
+- Django debe ejecutarse detrás de un servidor de nivel de producción. uWSGI o Gunicorn: usted elige
+- FastAPI debe ejecitarse detrás de los procesos de Uvicorn(si lo prefiere, puede usar Gunicorn como administrador de procesos)
+- El servidor de desarrollo de Django (runserver) y uvicorn --reload no son aceptables para la entrega final
+
+Docker Compose
+- Un solo comando 'docker compose up' desde la raíz del repositorio debe iniciar toda la pila: PostgreSQL, Redis, Django, FastAPI y Nginx. Después de aproximadamente 30 segundos, debería funcionar lo siguiente desde el host:
+ -http://localhost/admin/ — Inicio de sesión de administrador de Django
+ -http://localhost/api/v1/<resource>/ — Listado de FastAPI.
+ -http://localhost/api/openapi.json — FastAPI OpenAPI schema.
+ -http://localhost/ — Frontend
+ -http://localhost/apiaaaaaa — 404 html page
+ -A /healthz endpoint en cada servicio que verifica sus dependencias y devuelve 200/503.
+-Se requieren Healthchecks
+
+Requerimientos no funcionales
+-Configuración mediante variables de entorno. No se permiten credenciales, ports, o hostnames dodificados directamente en el código, proporcione un archivo .env.example
+-Migraciones. Las migraciones de Django deben ejecutarse automáticamente al iniciar el contenedor. No se debe realizar un volcado SQL
+-Logging. Both services must log to stdout in a parseable format.
+-Test. Al menos 5 pruebas significativas por servicio. Utilice pytest
+-README. Debe incluir como ejecutarlo, como probarlo, tus decisiones de diseño, las concesiones que hiciste y al menos una cosa que hariasa diferente si tuvieras mas tiempo. Añade diagramas de los sistemas. Como interactúan los modulos
+
+Calidad del código Principios SOLID(OBLIGATORIO)
+- Cada capa del código __ Django models/admin, FastAPI routers/services/reopsitories, business logic, cache layer __ debe diseñarse siguiendo los principios SOLID y los patrones de diseño. Sebuscara evidencia de los 5 durante la revisión del código. El revisor espera encontrar como mínimo:
+ -Al menos una clase abstracta o protocolo por cada funcionalidad(cache, repositorio, búsqueda). Las clases concretas lo implementan
+ -Constructor injection(o FastAPI Depends) en lugar de importaciones dentro de los cuerpos de las funciones
+ -No se permite lógica de negocio dentro de las vistas de Django ni en FastAPI route handlers __ esta lógica se traslada a la capa de servicio
+ -No se permite la concatenación de cadenas SQL dentro de las clases de servicio, esta función corresponde a los repositorios
+-Una contribución que "funciona" pero consiste en un archivo views.py de 800 líneas se limitara al 60% independientemente de la exhaustividad de sus funcionalidades. Lo mismo ocurre con el código que simplemente esta ahí, pero que no aporta nungun valor a la implementación, siempre pregúntate: por que necesitamos este fragmento de código?
+
+Database Design — UML / ER Diagram (OBLIGATORIO)
+-Antes de escribir una sola migración, diseñe el esquema. Envielo al repositorio como:
+ -ER  diagram
+ -UML class diagram que muestre clases, atributos, tipos, multiplicidades y relaciones
+ -ddl document para la BD
+-El diagrama debe incluir:
+ -Todas las entidades de dominio(no la tabla 'auth_user' integrada de Django)
+ -Claves primarias y foráneas marcadas explícitamente
+ -Cardinalidad en cada relación (1:1, 1:N, M:N)
+ -Atributos no triviales con sus tipos de datos (UUID, timestamp con zona horaria, decimal(p,s), etc)
+ -Cualquier tabla de unión para relaciones de muchos a muchos
+
+Lo que comprobaremos
+El revisor va a:
+1. Clonar tu repositorio en una maquina nueva
+2. Copiar '.env.example' a '.env' (y quizás edita uno o dos valores).
+3. Ejecutar 'docker compose up'
+4. Acceder a los endpoints indicados
+5. Iniciar sesión en el panel de administración y crear algunos registros
+6. Verificar que esos registros aparezcan en las respuestas de FastAPI
+7. Detener Redis y verifica que la API siga respondiendo
+8. Leer tus pruebas y tu archivo README
+9. Ejecutar 'pytest' desde la raíz del repositorio
+10. Diagramas C4 para el sistema y sus interacciones
+11. Revisar el PR. Debe haber una PR, de lo contrario el código no será calificado
+Si alguno de los pasos anteriores requiere que el revisor depure su configuración, se le descontaran puntos
+
+Calificación
+-Docker compose funciona de extremo a extremo
+-Django admin (models, schema, admin UX)
+-FastAPI endpoints (correctness, schema, errors) 
+-Business logic implementation
+-Estrategia de almacenamiento en cache y degradación gradual
+-configuración nginx
+-SOLID / code structure / Design Patterns 
+-ER / UML diagram (matches code)
+-test
+-README y documentación de decisiones
+Una entrega sin diagrama o con un diagrama que no coincida con el código tendrá una calificación máxima del 50%
+Una entrega con todo en un solo archivo y sin abstracciones tendrá una calificación máxima del 50%
+El estudiante deberá defender su entrega, si el estudiante no puede defender el código, la calificación se limitara al 0%
+
+Reference Frontend
+Se proporciona un frontend simple en HTML/CSS/JS para cada una de las tresopciones de dominio en la carpeta 'frontends/' de esta tarea. No es necesario modificar el frontend, pero:
+-Tu API debe servir los endpoints a los que llama el frontend(consilta las llamadas 'fetch(…)' en cada archivo 'app.js')
+-Puedes usar el frontend durante el desarrollo para verificar el funcionamiento de tu API
+-Debes servir el frontend a través de nginx en / (requisito, no evaluable)
+-El frontend es HTML/CSS/JS puro, sin compilación ni framework. No incluyas React, Vue ni ningún empaquetador para mejorarlo. Esto queda fuera del alcance del proyecto
+IMPORTANTE!: Si tu API no coincide con el contrato que espera el frontend, el frontend es la fuente de información fidedigna; ajusta tu API, no el frontend
+
+Pistas, trampas y cosas que NO te amos a contar
+Las siguientes cuestiones se dejan intencionalmente a tu criterio, tal como harias en un trabajo real. No hay Slack para consultar; toma una decisión, documentala y sigue adelante
+-El responsable del producto dijo: "No se necesita una función de búsqueda independiente". Se refiere a la búsqueda de texto completo de PostgreSQL, ILIKE, trigramas o alguna otra cosa? Usted decide, pero /search debe devolver resultados relevantes, no cualquier fila
+-No se especifica el formato de paginación. Elija uno(offset/limit, page-number,cursor). Sea coherente
+-the brief says"que sea rapido". No hay un SLA. Defina un objetivo razonable en el README y explique como su diseño lo cumple
+-Que Django y FastAPI accedan a la misma base de datos es una fuente conocida de errores. Piense en que sucede cuando Django crea un registro y la cache de FastAPI aun conserva la lista anterior
+-Ninguna norma indica que el servicio FastAPI deba estar autenticado. Ninguna norma indica que no deba estarlo. Decida
+-Los dominios de ejemplo tienen casos naturales de eliminación lógica(eventos cancelados, restaurantes archivados). La eliminación lógica no es obligatoria, pero si la implementa, ambos servicios deben respetarla.
+-Varios campos en los dominios anteriores son ambiguos a propósito(por ejemplo "Capacidad de la sesion": a nivel de sesión o de pista?). Elija una normalización sensata y documéntela.
+-El ejemplo que se mostro en clase utilizaba Elasticsearch. Noutilice Elasticsearch en este examen. Si lo hace se le pedirá que lo elimine durante la revisión
+-Datos de ejemplo: debe inicializar automáticamente al menos 300 recursos principales y 500 recursos secundarios por cada recurso por cada recurso principal al iniciar el sistema. Un comando de administración o una consulta SQL son suficientes. No oblige al revisor a navegar por el panel de administración para crear datos de prueba
+-Se verificara el manejo de zona horaria. Al menos un parámetro de consulta o un campo de respuesta debe demostrar que su código reconoce la zona horaria (y no utiliza silenciosamente la hora local del servidor)
+-Es probable que la configuración de nginx que copie de Stack Overflow no oculte el encabezado de versión por defecto. Verifiquelo con 'curl -I'
+-Una de las tres opciones de lógica de negocio anteriores presenta una condición de carrera sutil si se implementa de forma ingenua. Elija la que prefiera; pero si elije esa, su archivo README debe explicar como la gestiono
+
+Que presentar
+1.URL del repositorio Git(debe ser accesible)
+2. Crea un pull request y comparte el enlace a la misma
+3. Un párrafo(en el archivo README o SUBMISSION.md) que describa lo único de tu propuesta de lo que te sientes mas orgulloso y lo único de lo que te sientes menos satisfecho
