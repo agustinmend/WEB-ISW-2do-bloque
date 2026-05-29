@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Query
+from uuid import UUID
 from repositories.session_repo import SessionRepositoryProtocol, PostgresSessionRepository
 from services.session_service import SessionService
-from models.session import PaginatedSessionResponse
+from models.model import PaginatedSessionResponse, SessionModel
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
@@ -22,3 +23,7 @@ def list_sessions(
     service: SessionService = Depends(get_session_service)
 ):
     return service.get_paginated_sessions(page, page_size, q, track, day, tz)
+
+@router.get("/{session_id}", response_model=SessionModel)
+def get_session(session_id: UUID, service: SessionService = Depends(get_session_service)):
+    return service.get_session_detail(str(session_id))
