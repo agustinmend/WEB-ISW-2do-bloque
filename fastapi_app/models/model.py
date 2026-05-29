@@ -12,7 +12,6 @@ class TrackModel(BaseModel):
 class SpeakerModel(BaseModel):
     id: UUID
     name: str
-    affiliation: Optional[str] = None
 
 class SessionModel(BaseModel):
     id: UUID

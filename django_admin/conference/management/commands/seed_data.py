@@ -1,8 +1,9 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from datetime import timedelta
-from conference.models import UserAccount, Conference, Track, Session, Registration
+from conference.models import UserAccount, Conference, Track, Session, Registration, Speaker
 import uuid
+import random
 
 class Command(BaseCommand):
     def handle(self, *args, **kwargs):
@@ -22,6 +23,13 @@ class Command(BaseCommand):
         )
         track = Track.objects.create(name="Ingeniería de Software", conference=conf)
 
+        speakers_to_create = [
+            Speaker(id=uuid.uuid4(), name=f"Dr. Ponente {i}", email=f"ponente{i}@ejemplo.com") 
+            for i in range(15)
+        ]
+        Speaker.objects.bulk_create(speakers_to_create)
+        speakers = list(Speaker.objects.all())
+
         sessions_to_create = []
         for i in range(300):
             sessions_to_create.append(Session(
@@ -36,6 +44,18 @@ class Command(BaseCommand):
         Session.objects.bulk_create(sessions_to_create)
         sessions = list(Session.objects.all())
 
+        SessionSpeaker = Session.speakers.through
+        session_speakers_to_create = []
+        
+        for session in sessions:
+            assigned_speakers = random.sample(speakers, k=random.randint(1, 2))
+            for speaker in assigned_speakers:
+                session_speakers_to_create.append(
+                    SessionSpeaker(session_id=session.id, speaker_id=speaker.id)
+                )
+        
+        SessionSpeaker.objects.bulk_create(session_speakers_to_create)
+
         registrations_to_create = []
         for session in sessions:
             for user in users:
@@ -48,4 +68,6 @@ class Command(BaseCommand):
         if registrations_to_create:
             Registration.objects.bulk_create(registrations_to_create)
 
-        self.stdout.write(self.style.SUCCESS('Seeding completado exitosamente.'))
+        self.stdout.write(self.style.SUCCESS(
+            f'Seeding completado exitosamente: 500 Usuarios, 15 Speakers, 300 Sesiones, {len(session_speakers_to_create)} vínculos M2M.'
+        ))

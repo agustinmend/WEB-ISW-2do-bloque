@@ -38,11 +38,21 @@ class PostgresSessionRepository:
             SELECT 
                 s.id, s.title, s.description AS abstract, s.start_time AS starts_at, s.end_time AS ends_at, s.capacity,
                 CASE WHEN t.id IS NOT NULL THEN json_build_object('id', t.id, 'name', t.name) ELSE NULL END AS track,
-                '[]'::json AS speakers
-            FROM content.session s LEFT JOIN content.track t ON s.track_id = t.id
-            WHERE {where_str} ORDER BY s.start_time ASC LIMIT %(limit)s OFFSET %(offset)s;
+                COALESCE(
+                    (SELECT json_agg(
+                        json_build_object('id', sp.id, 'name', sp.name)
+                    )
+                    FROM content.session_speaker ssp
+                    JOIN content.speaker sp ON ssp.speaker_id = sp.id
+                    WHERE ssp.session_id = s.id), 
+                    '[]'::json
+                ) AS speakers
+            FROM content.session s 
+            LEFT JOIN content.track t ON s.track_id = t.id
+            WHERE {where_str} 
+            ORDER BY s.start_time ASC 
+            LIMIT %(limit)s OFFSET %(offset)s;
         """
-
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(count_sql, params)
             total = cur.fetchone()['total']
