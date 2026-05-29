@@ -15,3 +15,6 @@ class SessionService:
         if not session:
             raise HTTPException(status_code=404, detail="Session no encontrada")
         return session
+    
+    def search_sessions_by_text(self, query: str) -> list:
+        return self.db.search_sessions(query)

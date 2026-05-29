@@ -3,6 +3,7 @@ from uuid import UUID
 from repositories.session_repo import SessionRepositoryProtocol, PostgresSessionRepository
 from services.session_service import SessionService
 from models.model import PaginatedSessionResponse, SessionModel
+from typing import List
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
@@ -23,6 +24,13 @@ def list_sessions(
     service: SessionService = Depends(get_session_service)
 ):
     return service.get_paginated_sessions(page, page_size, q, track, day, tz)
+
+@router.get("/search/", response_model=List[SessionModel])
+def search_sessions(
+    query: str = Query(..., description="Texto a buscar"),
+    service: SessionService = Depends(get_session_service)
+):
+    return service.search_sessions_by_text(query)
 
 @router.get("/{session_id}", response_model=SessionModel)
 def get_session(session_id: UUID, service: SessionService = Depends(get_session_service)):

@@ -6,6 +6,7 @@ from typing import Protocol, List, Dict, Any, Tuple
 class SessionRepositoryProtocol(Protocol):
     def get_sessions(self, limit: int, offset: int, search: str, track: str, day: str, tz: str) -> Tuple[int, List[Dict[str, Any]]]: ...
     def get_session_by_id(self, session_id: str) -> Dict[str, Any]: ...
+    def search_sessions(self, query: str) -> List[Dict[str, Any]]: ...
 
 class PostgresSessionRepository:
     def _connect(self):
@@ -80,3 +81,23 @@ class PostgresSessionRepository:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(sql, {'session_id': session_id})
             return cur.fetchone()
+        
+    def search_sessions(self, query: str) -> List[Dict[str, Any]]:
+        sql = """
+            SELECT 
+                s.id, s.title, s.description AS abstract, s.start_time AS starts_at, s.end_time AS ends_at, s.capacity,
+                CASE WHEN t.id IS NOT NULL THEN json_build_object('id', t.id, 'name', t.name) ELSE NULL END AS track,
+                COALESCE(
+                    (SELECT json_agg(json_build_object('id', sp.id, 'name', sp.name))
+                    FROM content.session_speaker ssp
+                    JOIN content.speaker sp ON ssp.speaker_id = sp.id
+                    WHERE ssp.session_id = s.id), '[]'::json
+                ) AS speakers
+            FROM content.session s 
+            LEFT JOIN content.track t ON s.track_id = t.id
+            WHERE s.title ILIKE %(query)s OR s.description ILIKE %(query)s
+            ORDER BY s.start_time ASC LIMIT 50;
+        """
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(sql, {'query': f"%{query}%"})
+            return cur.fetchall()
