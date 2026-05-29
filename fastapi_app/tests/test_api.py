@@ -17,32 +17,53 @@ def db_integration_setup():
     )
     cur = conn.cursor()
 
+    conf_id = str(uuid.uuid4())
     track_id = str(uuid.uuid4())
     session_id = str(uuid.uuid4())
     speaker_id = str(uuid.uuid4())
+    ss_id = str(uuid.uuid4())
+    
+    now = datetime.now(timezone.utc)
 
-    cur.execute("INSERT INTO content.track (id, name) VALUES (%s, %s)", (track_id, "Track de Integración"))
-    cur.execute("INSERT INTO content.speaker (id, name, email) VALUES (%s, %s, %s)", (speaker_id, "Speaker Test", f"test_{speaker_id}@test.com"))
+    cur.execute(
+        "INSERT INTO content.conference (id, name, start_date, end_date, created, modified) VALUES (%s, %s, %s, %s, %s, %s)",
+        (conf_id, "Conf de Prueba", now, now, now, now)
+    )
+
+    cur.execute(
+        "INSERT INTO content.track (id, conference_id, name, created, modified) VALUES (%s, %s, %s, %s, %s)",
+        (track_id, conf_id, "Track de Integración", now, now)
+    )
+
+    cur.execute(
+        "INSERT INTO content.speaker (id, name, email, created, modified) VALUES (%s, %s, %s, %s, %s)",
+        (speaker_id, "Speaker Test", f"test_{speaker_id}@test.com", now, now)
+    )
     
     cur.execute("""
-        INSERT INTO content.session (id, track_id, title, description, start_time, end_time, capacity)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO content.session (id, track_id, title, description, start_time, end_time, capacity, created, modified)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
     """, (
         session_id, track_id, "Sesión de Prueba Real", "Abstract", 
         datetime(2026, 7, 1, 9, 0, tzinfo=timezone.utc), 
         datetime(2026, 7, 1, 10, 0, tzinfo=timezone.utc), 
-        100
+        100, now, now
     ))
 
-    cur.execute("INSERT INTO content.session_speaker (session_id, speaker_id) VALUES (%s, %s)", (session_id, speaker_id))
+    cur.execute(
+        "INSERT INTO content.session_speaker (id, session_id, speaker_id, created, modified) VALUES (%s, %s, %s, %s, %s)",
+        (ss_id, session_id, speaker_id, now, now)
+    )
+    
     conn.commit()
 
     yield session_id
 
-    cur.execute("DELETE FROM content.session_speaker WHERE session_id = %s", (session_id,))
+    cur.execute("DELETE FROM content.session_speaker WHERE id = %s", (ss_id,))
     cur.execute("DELETE FROM content.session WHERE id = %s", (session_id,))
     cur.execute("DELETE FROM content.speaker WHERE id = %s", (speaker_id,))
     cur.execute("DELETE FROM content.track WHERE id = %s", (track_id,))
+    cur.execute("DELETE FROM content.conference WHERE id = %s", (conf_id,))
     conn.commit()
     
     cur.close()
